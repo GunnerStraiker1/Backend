@@ -58,9 +58,11 @@ class ProductController extends Controller
      * @param  \App\Product  $product
      * @return \Illuminate\Http\Response
      */
-    public function show(Product $product)
+    public function show($id)
     {
         //
+        $product = $this->product->find($id);
+        return response()->json($product,201);
     }
 
     /**
