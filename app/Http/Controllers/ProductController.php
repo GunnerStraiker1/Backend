@@ -22,8 +22,13 @@ class ProductController extends Controller
     {
         //
         $product = $this->product->all();
-        return response()->json(['data'=> $product,
+        if (!$product->isEmpty()) {
+            return response()->json(['data'=> $product,
         'status' => Response::HTTP_OK]);
+        }
+        else {
+            return response()->json(NULL, 404);
+        }
     }
 
     /**
@@ -62,7 +67,13 @@ class ProductController extends Controller
     {
         //
         $product = $this->product->find($id);
-        return response()->json($product,201);
+        if(!is_null($product)){
+            return response()->json($product,200);
+        }
+        else {
+            return response()->json($product,404);
+        }
+        
     }
 
     /**
@@ -89,11 +100,15 @@ class ProductController extends Controller
         $data = $this->request->all();
         $product = $this->product->find($id);
 
-        $product->name = $data['name'];
-        $product->price = $data['price'];
-        $product->save();
-
-        return response()->json(['status' => Response::HTTP_OK]);
+        if (!is_null($product)) {
+            $product->name = $data['name'];
+            $product->price = $data['price'];
+            $product->save();
+            return response()->json($product, 200);
+        }
+        else{
+            return response()->json($product, 404);
+        }   
     }
 
     /**
@@ -106,6 +121,7 @@ class ProductController extends Controller
     {
         //
         $product = $this->product->find($id);
+
         $product->delete();
 
         return response()->json(['status' => Response::HTTP_OK]);
