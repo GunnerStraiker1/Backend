@@ -22,7 +22,7 @@ Route::get('/greeting', function (Request $request){
 });
 
 Route::get('products', "ProductController@index");
-Route::get('products/{id}', "ProductController@show");
+Route::get('products/{id}', "ProductController@show")->where(['id' => '[0-9]+']);
 Route::post('products', "ProductController@store");
-Route::put('products/{id}', "ProductController@update");
-Route::delete('products/{id}', "ProductController@destroy");
+Route::put('products/{id}', "ProductController@update")->where(['id' => '[0-9]+']);
+Route::delete('products/{id}', "ProductController@destroy")->where(['id' => '[0-9]+']);

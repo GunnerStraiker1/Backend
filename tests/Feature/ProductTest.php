@@ -12,18 +12,15 @@ class ProductTest extends TestCase
 {
     use RefreshDatabase;
     /**
-     * @group create
+     * CREATE-1
      */
     public function test_client_can_create_a_product()
     {
         // Given
-        $productData = [
-            'name' => 'Huevito Kinder',
-            'price' => '9.30'
-        ];
+        $productData = factory(Product::class)->make();
 
         // When
-        $response = $this->json('POST', '/api/products', $productData); 
+        $response = $this->json('POST', '/api/products', $productData->toArray()); 
 
         // Then
         // Assert it sends the correct HTTP Status
@@ -39,8 +36,8 @@ class ProductTest extends TestCase
         // Assert the product was created
         // with the correct data
         $response->assertJsonFragment([
-            'name' => 'Huevito Kinder',
-            'price' => '9.30'
+            'name' => $productData->name,
+            'price' => $productData->price
         ]);
         
         $body = $response->decodeResponseJson();
@@ -50,60 +47,190 @@ class ProductTest extends TestCase
             'products',
             [
                 'id' => $body['id'],
-                'name' => 'Huevito Kinder',
-                'price' => '9.30'
+                'name' => $productData->name,
+                'price' => $productData->price
             ]
         );
     }
 
+    /**
+     * CREATE-2
+     */
+    public function test_client_create_a_product_without_name()
+    {
+        // Given
+        $productData = factory(Product::class)->make([
+            'name' => ''
+        ]);
+        // When
+        $response = $this->json('POST', '/api/products', $productData->toArray());
+        // Then
+        // Assert it sends the correct HTTP Status
+        $response->assertStatus(422);
+        // Assert the response has the correct structure
+        $response->assertJsonStructure(['*' => ['*'=>[
+            'code',
+            'title',
+        ]]]);
+        $response->assertJsonFragment([
+            'code' => 'Error-1',
+            'title' => 'A name is required'
+        ]);
+        // Assert product is on the database
+        $this->assertDatabaseMissing(
+            'products',
+            [
+                'name' => $productData->name,
+                'price' => $productData->price
+            ]
+        );
+    }
+
+    /**
+     * CREATE-3
+     */
+    public function test_client_create_a_product_without_price()
+    {
+        // Given
+        $productData = factory(Product::class)->make([
+            'price' => null
+        ]);
+        // When
+        $response = $this->json('POST', '/api/products', $productData->toArray());
+        // Then
+        // Assert it sends the correct HTTP Status
+        $response->assertStatus(422);
+        // Assert the response has the correct structure
+        $response->assertJsonStructure(['*' => ['*'=>[
+            'code',
+            'title',
+        ]]]);
+        $response->assertJsonFragment([
+            'code' => 'Error-1',
+            'title' => 'A price is required'
+        ]);
+        // Assert product is on the database
+        $this->assertDatabaseMissing(
+            'products',
+            [
+                'name' => $productData->name,
+                'price' => $productData->price
+            ]
+        );
+    }
+
+    /**
+     * CREATE-4
+     */
+    public function test_client_create_a_product_with_price_string()
+    {
+        // Given
+        $productData = factory(Product::class)->make([
+            'price' => 'Dolar'
+        ]);
+        // When
+        $response = $this->json('POST', '/api/products', $productData->toArray());
+        // Then
+        // Assert it sends the correct HTTP Status
+        $response->assertStatus(422);
+        // Assert the response has the correct structure
+        $response->assertJsonStructure(['*' => ['*'=>[
+            'code',
+            'title',
+        ]]]);
+        $response->assertJsonFragment([
+            'code' => 'Error-1',
+            'title' => 'The price has to be numeric'
+        ]);
+    }
+
+    /**
+     * CREATE-5
+     */
+    public function test_client_create_a_product_with_price_less_or_equal_to_zero()
+    {
+        // Given
+        $productData = factory(Product::class)->make([
+            'price' => -2
+        ]);
+        // When
+        $response = $this->json('POST', '/api/products', $productData->toArray());
+        // Then
+        // Assert it sends the correct HTTP Status
+        $response->assertStatus(422);
+        // Assert the response has the correct structure
+        $response->assertJsonStructure(['*' => ['*'=>[
+            'code',
+            'title',
+        ]]]);
+        $response->assertJsonFragment([
+            'code' => 'Error-1',
+            'title' => 'The price has to be more than 0 (zero)'
+        ]);
+        // Assert product is on the database
+        $this->assertDatabaseMissing(
+            'products',
+            [
+                'name' => $productData->name,
+                'price' => $productData->price
+            ]
+        );
+    }
+
+    /**
+     * LIST-1
+     */
     public function test_client_can_get_products()
     {
-        //Given
-        $productData = [
-            'name' => 'Huevito Kinder',
-            'price' => '9.30'
-        ];
-
-        //When
-        $responsePost = $this->json("POST", 'api/products', $productData);
+        $newProduct = factory(Product::class,2)->create();
 
         $responseGet = $this->json("GET", 'api/products');
         
-        if ($responseGet->assertStatus(200)) {
-            //Then
-            // Assert it sends the correct HTTP Status
-            $responseGet->assertJsonStructure([
-                'data'=>[
-                    '*'=>[
-                        'id',
-                        'updated_at',
-                        'created_at',
-                        'name',
-                        'price'
-                    ]
+        $responseGet->assertStatus(200);
+        //Then
+        // Assert it sends the correct HTTP Status
+        $responseGet->assertJsonStructure([
+            'data'=>[
+                '*'=>[
+                    'id',
+                    'updated_at',
+                    'created_at',
+                    'name',
+                    'price'
                 ]
-            ]);
-        }
-        elseif ($responseGet->assertStatus(404)) {
-            $responseGet->assertEquals(null, $responseGet->getContent());
-        }
+            ]
+        ]);
+        $responseGet->assertJsonFragment([
+            'name' => $newProduct[0]->name,
+            'price' => strval($newProduct[0]->price)
+        ]);
     }
 
+    /**
+     * LIST-2
+     */
+    public function test_client_get_empty_products()
+    {
+        $responseGet = $this->json("GET", 'api/products');
+        
+        $responseGet->assertStatus(200);
+        //Then
+        // Assert it sends the correct HTTP Status
+        $responseGet->assertJsonStructure([
+            '*'=>[]
+        ]);
+    }
+
+    /**
+     * SHOW-1
+     */
     public function test_client_can_show_products()
     {
-        // Given
-        $productData = [
-            'name' => 'Huevito Kinder',
-            'price' => '9.30'
-        ];
+        $newProduct = factory(Product::class)->create();
 
-        // When
-        $responsePost = $this->json('POST', '/api/products', $productData);
-        $bodyPost = $responsePost->decodeResponseJson();
+        $responseOneGet = $this->json('GET', '/api/products/'.$newProduct->id);
 
-        $responseOneGet = $this->json('GET', '/api/products/'.$bodyPost['id']);
-
-        if ($responseOneGet->assertStatus((200))) {
+        $responseOneGet->assertStatus((200));
             //Then
             $responseOneGet->assertJsonStructure([
                 'id',
@@ -114,110 +241,240 @@ class ProductTest extends TestCase
             ]);
 
             $responseOneGet->assertJsonFragment([
-                'name'=> 'Huevito Kinder',
-                'price'=> '9.30'
+                'name'=> $newProduct->name,
+                'price'=> strval($newProduct->price)
             ]);
-
-            $bodyResponse = $responseOneGet->decodeResponseJson();
 
             $this->assertDatabaseHas(
                 'products',
                 [
-                    'id'=> $bodyResponse['id'],
-                    'name'=> 'Huevito Kinder',
-                    'price'=> '9.30'
+                    'id'=> $newProduct->id,
+                    'name'=> $newProduct->name,
+                    'price'=> $newProduct->price
                 ]
+            );       
+    }
+
+    /**
+     * SHOW-2
+     */
+    public function test_client_cant_show_from_unknown_id()
+    {
+        $responseOneGet = $this->json('GET', '/api/products/24');
+
+        $responseOneGet->assertStatus((404));
+            //Then
+            $responseOneGet->assertJsonStructure(
+                ['*' => ['*'=>
+                    'code',
+                    'title',
+                ]]
             );
 
-        } else if ($responseOneGet->assertStatus((404))){
-            $responseOneGet->assertEquals(NULL,$responseOneGet->getContent());
-        }
-        
+            $responseOneGet->assertJsonFragment([
+                'code' => 'Error-2',
+                'title' => 'ID does not exist'
+            ]);
 
+            $this->assertDatabaseMissing(
+                'products',
+                [
+                    'id'=> 24
+                ]
+            );       
     }
     
+    /**
+     * UPDATE-1
+     */
     public function test_client_can_update_products()
     {
         // Given
-        $productData = [
-            'name' => 'Huevito Kinder',
-            'price' => '9.30'
-        ];
+        $newProduct = factory(Product::class)->create();
 
-        // When
-        $responsePost = $this->json('POST', '/api/products', $productData);
-        $bodyPost = $responsePost->decodeResponseJson();
+        $newProductUpdate = factory(Product::class)->make([
+            'id' => $newProduct->id,
+        ]);
 
-        $newDataProduct = [
-            'id' => $bodyPost['id'],
-            'name' => 'Carlos XV',
-            'price' => '5.40'
-        ];
+        $responsePut = $this->json('PUT', 'api/products/'.$newProduct->id, $newProductUpdate->toArray());
 
-        $responsePut = $this->json('PUT', 'api/products/'.$bodyPost['id'], $newDataProduct);
+        $responsePut->assertStatus((200));
+        //Then
+        $responsePut->assertJsonStructure([
+            'id',
+            'updated_at',
+            'created_at',
+            'name',
+            'price'
+        ]);
 
-        if ($responsePut->assertStatus((200))) {
-            //Then
-            $responsePut->assertJsonStructure([
-                'id',
-                'updated_at',
-                'created_at',
-                'name',
-                'price'
-            ]);
+        $responsePut->assertJsonFragment([
+            'id' => $newProductUpdate->id,
+            'name' => $newProductUpdate->name,
+            'price' => $newProductUpdate->price
+        ]);
 
-            $responsePut->assertJsonFragment([
-                'id' => $bodyPost['id'],
-                'name' => 'Carlos XV',
-                'price' => '5.40'
-            ]);
-
-            $bodyResponse = $responsePut->decodeResponseJson();
-
-            //Assert in DB
-            $this->assertDatabaseHas(
-                'products',
-                [
-                    'id' => $bodyResponse['id'],
-                    'name' => 'Carlos XV',
-                    'price' => '5.40'
-                ]
-            );
-            
-        } elseif ($responsePut->assertStatus(404)) {
-            $responsePut->assertEquals(NULL, $responsePut->getContent());
-        }
-        
+        //Assert in DB
+        $this->assertDatabaseHas(
+            'products',
+            [
+                'id' => $newProductUpdate->id,
+                'name' => $newProductUpdate->name,
+                'price' => $newProductUpdate->price
+            ]
+        );       
         
     }
 
+    /**
+     * UPDATE-2
+     */
+    public function test_client_update_price_string()
+    {
+        // Given
+        $newProduct = factory(Product::class)->create();
+
+        $newProductUpdate = factory(Product::class)->make([
+            'id' => $newProduct->id,
+            'price' => "EUR"
+        ]);
+
+        $responsePut = $this->json('PUT', 'api/products/'.$newProduct->id, $newProductUpdate->toArray());
+
+        $responsePut->assertStatus((422));
+        //Then
+        $responsePut->assertJsonStructure(
+            ['*' => ['*'=>[
+                'code',
+                'title'
+            ]
+        ]]);
+
+        $responsePut->assertJsonFragment([
+            'code' => 'Error-1',
+            'title' => 'The price has to be numeric'
+        ]);   
+    }
+
+    /**
+     * UPDATE-3
+     */
+    public function test_client_update_price_less_to_zero()
+    {
+        // Given
+        $newProduct = factory(Product::class)->create();
+
+        $newProductUpdate = factory(Product::class)->make([
+            'id' => $newProduct->id,
+            'price' => -2
+        ]);
+
+        $responsePut = $this->json('PUT', 'api/products/'.$newProduct->id, $newProductUpdate->toArray());
+
+        $responsePut->assertStatus((422));
+        //Then
+        $responsePut->assertJsonStructure([
+            '*'=>[ '*'=>[
+                'code',
+                'title'
+            ]]
+        ]);
+
+        $responsePut->assertJsonFragment([
+            'code' => 'Error-1',
+            'title' => 'The price has to be more than 0 (zero)'
+        ]);
+
+        //Assert in DB
+        $this->assertDatabaseMissing(
+            'products',
+            [
+                'id' => $newProductUpdate->id,
+                'name' => $newProductUpdate->name,
+                'price' => $newProductUpdate->price
+            ]
+        );       
+        
+    }
+
+    /**
+     * UPDATE-4
+     */
+    public function test_client_update_id_unknowed()
+    {
+        // Given
+        $newProductUpdate = factory(Product::class)->make([
+            'id' => 2,
+        ]);
+
+        $responsePut = $this->json('PUT', 'api/products/'.$newProductUpdate->id, $newProductUpdate->toArray());
+
+        $responsePut->assertStatus((404));
+        //Then
+        $responsePut->assertJsonStructure(
+            ['*' => ['*'=>
+            'code',
+            'title',
+            ]]
+        );
+
+        $responsePut->assertJsonFragment([
+            'code' => 'Error-2',
+            'title' => 'ID does not exist'
+        ]);
+
+        //Assert in DB
+        $this->assertDatabaseMissing(
+            'products',
+            [
+                'id' => $newProductUpdate->id,
+                'name' => $newProductUpdate->name,
+                'price' => $newProductUpdate->price
+            ]
+        );       
+        
+    }
+
+    /**
+     * DELETE-1
+     */
     public function test_client_can_delete_products()
     {
         // Given
-        $productDataA = [
-            'name' => 'Huevito Kinder',
-            'price' => '9.30'
-        ];
+        $newProduct = factory(Product::class)->create();
 
-        $productDataB = [
-            'name' => 'Super Mega Chancho',
-            'price' => '49.99'
-        ];
+        $responseDelete = $this->json('DELETE', '/api/products/' . $newProduct->id);
 
-        //When
-        $reponsePostA = $this->json('POST', '/api/products', $productDataA);
-        $reponsePostB = $this->json('POST', '/api/products', $productDataB);
-        $bodyPostA= $reponsePostA->decodeResponseJson();
+        $responseDelete->assertStatus(204);
+        $responseDelete->assertSee(NULL);
+    }
 
-        $responseDelete = $this->json('DELETE', '/api/products/' . $bodyPostA['id']);
+    /**
+     * DELETE-2
+     */
+    public function test_client_cant_delete_inexistent_product()
+    {
+        // Given
+        $responseDelete = $this->json('DELETE', '/api/products/3');
 
-        if ($responseDelete->assertStatus(200)) {
-            $responseDelete->assertJsonStructure([
-                'status'
-            ]);
-        } elseif ($responseDelete->assertStatus(404)) {
-            $responseDelete->assertEquals(NULL, $responseDelete->getContent());
-        }
+        $responseDelete->assertStatus(404);
+
+        // Assert the response has the correct structure
+        $responseDelete->assertJsonStructure(['*' => ['*'=>
+            'code',
+           'title',
+        ]]);
+
+        $responseDelete->assertJsonFragment([
+            'code' => 'Error-2',
+            'title' => 'ID does not exist'
+        ]);
+        $this->assertDatabaseMissing(
+            'products',
+            [
+                'id' => 1
+            ]
+        );
     }
 }
  
