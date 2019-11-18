@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\StoreProductRequest;
+use App\Http\Requests\UpdateProductRequest;
 use App\Product;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -22,8 +24,13 @@ class ProductController extends Controller
     {
         //
         $product = $this->product->all();
-        return response()->json(['data'=> $product,
+        if (!$product->isEmpty()) {
+            return response()->json(['data'=> $product,
         'status' => Response::HTTP_OK]);
+        }
+        else {
+            return response()->json(NULL, 200);
+        }
     }
 
     /**
@@ -39,11 +46,12 @@ class ProductController extends Controller
     /**
      * Store a newly created resource in storage.
      *
-     * @param  \Illuminate\Http\Request  $request
+     * @param  \App\Http\StoreProductRequest $request
      * @return \Illuminate\Http\Response
      */
-    public function store(Request $request)
+    public function store(StoreProductRequest $request)
     {
+        $validate = $request->validated();
          // Create a new product
         $product = Product::create($request->all());
 
@@ -62,7 +70,14 @@ class ProductController extends Controller
     {
         //
         $product = $this->product->find($id);
-        return response()->json($product,201);
+        if(!is_null($product)){
+            return response()->json($product,200);
+        }
+        else {
+            $error = ['errors' => ['code' => 'Error-2', 'title' => 'ID does not exist']];
+            return response()->json($error,404);
+        }
+        
     }
 
     /**
@@ -79,21 +94,24 @@ class ProductController extends Controller
     /**
      * Update the specified resource in storage.
      *
-     * @param  \Illuminate\Http\Request  $request
+     * @param  \App\Http\Request\UpdateProductRequest  $request
      * @param  \App\Product  $product
      * @return \Illuminate\Http\Response
      */
-    public function update($id)
+    public function update(UpdateProductRequest $request, $id)
     {
-        //
-        $data = $this->request->all();
+        $validate = $request->validated();
+
         $product = $this->product->find($id);
 
-        $product->name = $data['name'];
-        $product->price = $data['price'];
-        $product->save();
-
-        return response()->json(['status' => Response::HTTP_OK]);
+        if (!is_null($product)) {
+            $product->update($request->all());
+            return response()->json($product, 200);
+        }
+        else{
+            $error = ['errors' => ['code' => 'Error-2', 'title' => 'ID does not exist']];
+            return response()->json($error, 404);
+        }   
     }
 
     /**
@@ -106,8 +124,14 @@ class ProductController extends Controller
     {
         //
         $product = $this->product->find($id);
-        $product->delete();
 
-        return response()->json(['status' => Response::HTTP_OK]);
+        if(!is_null($product)){
+            $product->delete();
+            return response()->json(NULL,204);
+        }
+        else {
+            $error = ['errors' => ['code' => 'Error-2', 'title' => 'ID does not exist']];
+            return response()->json($error,404);
+        }
     }
 }
