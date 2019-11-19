@@ -17,7 +17,7 @@ class ProductTest extends TestCase
     public function test_client_can_create_a_product()
     {
         // Given
-        $productData = factory(Product::class)->make();
+        $productData = factory(Product::class, 'reformatted')->make();
 
         // When
         $response = $this->json('POST', '/api/products', $productData->toArray()); 
@@ -28,16 +28,22 @@ class ProductTest extends TestCase
         
         // Assert the response has the correct structure
         $response->assertJsonStructure([
-            'id',
-            'name',
-            'price'
+            'data' => [
+                'type',
+                'id',
+                'attributes' => [
+                    'name',
+                    'price'
+                ],
+                'links'
+            ]
         ]);
 
         // Assert the product was created
         // with the correct data
         $response->assertJsonFragment([
-            'name' => $productData->name,
-            'price' => $productData->price
+            'name' => $productData->data['attributes']['name'],
+            'price' => $productData->data['attributes']['price']
         ]);
         
         $body = $response->decodeResponseJson();
@@ -46,9 +52,9 @@ class ProductTest extends TestCase
         $this->assertDatabaseHas(
             'products',
             [
-                'id' => $body['id'],
-                'name' => $productData->name,
-                'price' => $productData->price
+                'id' => $body['data']['id'],
+                'name' => $productData->data['attributes']['name'],
+                'price' => $productData->data['attributes']['price']
             ]
         );
     }
@@ -59,9 +65,7 @@ class ProductTest extends TestCase
     public function test_client_create_a_product_without_name()
     {
         // Given
-        $productData = factory(Product::class)->make([
-            'name' => ''
-        ]);
+        $productData = factory(Product::class,'withoutName')->make();
         // When
         $response = $this->json('POST', '/api/products', $productData->toArray());
         // Then
@@ -80,8 +84,8 @@ class ProductTest extends TestCase
         $this->assertDatabaseMissing(
             'products',
             [
-                'name' => $productData->name,
-                'price' => $productData->price
+                'name' => $productData->data['attributes']['name'],
+                'price' => $productData->data['attributes']['price']
             ]
         );
     }
@@ -92,7 +96,7 @@ class ProductTest extends TestCase
     public function test_client_create_a_product_without_price()
     {
         // Given
-        $productData = factory(Product::class)->make([
+        $productData = factory(Product::class, 'withoutPrice')->make([
             'price' => null
         ]);
         // When
@@ -113,8 +117,8 @@ class ProductTest extends TestCase
         $this->assertDatabaseMissing(
             'products',
             [
-                'name' => $productData->name,
-                'price' => $productData->price
+                'name' => $productData->data['attributes']['name'],
+                'price' => $productData->data['attributes']['price']
             ]
         );
     }
@@ -125,7 +129,7 @@ class ProductTest extends TestCase
     public function test_client_create_a_product_with_price_string()
     {
         // Given
-        $productData = factory(Product::class)->make([
+        $productData = factory(Product::class, 'withoutNumPrice')->make([
             'price' => 'Dolar'
         ]);
         // When
@@ -150,7 +154,7 @@ class ProductTest extends TestCase
     public function test_client_create_a_product_with_price_less_or_equal_to_zero()
     {
         // Given
-        $productData = factory(Product::class)->make([
+        $productData = factory(Product::class, 'subzero')->make([
             'price' => -2
         ]);
         // When
@@ -171,8 +175,8 @@ class ProductTest extends TestCase
         $this->assertDatabaseMissing(
             'products',
             [
-                'name' => $productData->name,
-                'price' => $productData->price
+                'name' => $productData->data['attributes']['name'],
+                'price' => $productData->data['attributes']['price']
             ]
         );
     }
@@ -192,17 +196,22 @@ class ProductTest extends TestCase
         $responseGet->assertJsonStructure([
             'data'=>[
                 '*'=>[
+                    'type',
                     'id',
-                    'updated_at',
-                    'created_at',
-                    'name',
-                    'price'
+                    'attributes' => [
+                        'name',
+                        'price'
+                    ],
+                    'links'
                 ]
             ]
         ]);
         $responseGet->assertJsonFragment([
+            'type' => 'products',
+            'id' => $newProduct[0]->id,
             'name' => $newProduct[0]->name,
-            'price' => strval($newProduct[0]->price)
+            'price' => strval($newProduct[0]->price),
+            'self' => route('api-product', ['id' => $newProduct[0]->id])
         ]);
     }
 
@@ -233,16 +242,23 @@ class ProductTest extends TestCase
         $responseOneGet->assertStatus((200));
             //Then
             $responseOneGet->assertJsonStructure([
-                'id',
-                'updated_at',
-                'created_at',
-                'name',
-                'price'
+                'data' => [
+                    'type',
+                    'id',
+                    'attributes' => [
+                        'name',
+                        'price'
+                    ],
+                    'links'
+                ]
             ]);
 
             $responseOneGet->assertJsonFragment([
+                'type' => 'products',
+                'id'=> $newProduct->id,
                 'name'=> $newProduct->name,
-                'price'=> strval($newProduct->price)
+                'price'=> strval($newProduct->price),
+                'self' => route('api-product', ['id' => $newProduct->id])
             ]);
 
             $this->assertDatabaseHas(
@@ -292,35 +308,38 @@ class ProductTest extends TestCase
         // Given
         $newProduct = factory(Product::class)->create();
 
-        $newProductUpdate = factory(Product::class)->make([
-            'id' => $newProduct->id,
-        ]);
+        $newProductUpdate = factory(Product::class,'reformatted')->make();
 
         $responsePut = $this->json('PUT', 'api/products/'.$newProduct->id, $newProductUpdate->toArray());
 
         $responsePut->assertStatus((200));
         //Then
         $responsePut->assertJsonStructure([
-            'id',
-            'updated_at',
-            'created_at',
-            'name',
-            'price'
+            'data' => [
+                'type',
+                'id',
+                'attributes' => [
+                    'name',
+                    'price'
+                ],
+                'links'
+            ]
         ]);
 
         $responsePut->assertJsonFragment([
-            'id' => $newProductUpdate->id,
-            'name' => $newProductUpdate->name,
-            'price' => $newProductUpdate->price
+            'id' => $newProduct->id,
+            'name' => $newProductUpdate->data['attributes']['name'],
+            'price' => $newProductUpdate->data['attributes']['price'],
+            'self' => route('api-product', ['id' => $newProduct->id])
         ]);
 
         //Assert in DB
         $this->assertDatabaseHas(
             'products',
             [
-                'id' => $newProductUpdate->id,
-                'name' => $newProductUpdate->name,
-                'price' => $newProductUpdate->price
+                'id' => $newProduct->id,
+                'name' => $newProductUpdate->data['attributes']['name'],
+                'price' => $newProductUpdate->data['attributes']['price']
             ]
         );       
         
@@ -334,10 +353,7 @@ class ProductTest extends TestCase
         // Given
         $newProduct = factory(Product::class)->create();
 
-        $newProductUpdate = factory(Product::class)->make([
-            'id' => $newProduct->id,
-            'price' => "EUR"
-        ]);
+        $newProductUpdate = factory(Product::class,'withoutNumPrice')->make();
 
         $responsePut = $this->json('PUT', 'api/products/'.$newProduct->id, $newProductUpdate->toArray());
 
@@ -364,10 +380,7 @@ class ProductTest extends TestCase
         // Given
         $newProduct = factory(Product::class)->create();
 
-        $newProductUpdate = factory(Product::class)->make([
-            'id' => $newProduct->id,
-            'price' => -2
-        ]);
+        $newProductUpdate = factory(Product::class, 'subzero')->make();
 
         $responsePut = $this->json('PUT', 'api/products/'.$newProduct->id, $newProductUpdate->toArray());
 
@@ -390,8 +403,8 @@ class ProductTest extends TestCase
             'products',
             [
                 'id' => $newProductUpdate->id,
-                'name' => $newProductUpdate->name,
-                'price' => $newProductUpdate->price
+                'name' => $newProductUpdate->data['attributes']['name'],
+                'price' => $newProductUpdate->data['attributes']['price']
             ]
         );       
         
@@ -403,11 +416,9 @@ class ProductTest extends TestCase
     public function test_client_update_id_unknowed()
     {
         // Given
-        $newProductUpdate = factory(Product::class)->make([
-            'id' => 2,
-        ]);
+        $newProductUpdate = factory(Product::class, 'reformatted')->make();
 
-        $responsePut = $this->json('PUT', 'api/products/'.$newProductUpdate->id, $newProductUpdate->toArray());
+        $responsePut = $this->json('PUT', 'api/products/3', $newProductUpdate->toArray());
 
         $responsePut->assertStatus((404));
         //Then
@@ -428,8 +439,8 @@ class ProductTest extends TestCase
             'products',
             [
                 'id' => $newProductUpdate->id,
-                'name' => $newProductUpdate->name,
-                'price' => $newProductUpdate->price
+                'name' => $newProductUpdate->data['attributes']['name'],
+                'price' => $newProductUpdate->data['attributes']['price']
             ]
         );       
         

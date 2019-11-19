@@ -27,7 +27,7 @@ class UpdateProductRequest extends FormRequest
     public function rules()
     {
         return [
-            'price' => 'numeric|major'
+            'data.attributes.price' => 'numeric|major'
         ];
     }
      /**
@@ -38,11 +38,11 @@ class UpdateProductRequest extends FormRequest
     public function messages()
     {
         return [
-            'price.numeric' => [
+            'data.attributes.price.numeric' => [
                 'code' => 'Error-1',
                 'title' => 'The price has to be numeric'
             ],
-            'price.major' => [
+            'data.attributes.price.major' => [
                 'code' => 'Error-1',
                 'title' => 'The price has to be more than 0 (zero)'
             ]
